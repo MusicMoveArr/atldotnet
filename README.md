@@ -1,4 +1,4 @@
-# Audio Tools Library (ATL) for .NET ![NetStandard](https://img.shields.io/badge/.NET%20Standard-2.1-lightgrey.svg) ![.NET](https://img.shields.io/badge/.NET-6-lightgrey.svg)
+# Audio Tools Library (ATL) for .NET ![.NET](https://img.shields.io/badge/.NET-6-lightgrey.svg)
 
 __Latest stable version__ : [![NuGet](https://img.shields.io/nuget/v/z440.atl.core.svg)](https://www.nuget.org/packages/z440.atl.core/) [![Publish to NuGet Gallery](https://github.com/Zeugma440/atldotnet/actions/workflows/nuget_build_release.yml/badge.svg)](https://github.com/Zeugma440/atldotnet/actions/workflows/nuget_build_release.yml)
 
@@ -63,7 +63,7 @@ As a fellow audiophile and developer, I'm proudly extending and improving their 
 
 * ATL supports __[chapters](https://github.com/Zeugma440/atldotnet/wiki/Focus-on-Chapter-metadata)__ natively
 
-* ATL supports __lyrics__ natively
+* ATL supports __[lyrics](https://github.com/Zeugma440/atldotnet/wiki/Focus-on-lyrics-metadata)__ natively
 
 * ATL supports BEXT, LIST (general metadata, labels and notes), CUE (cue points), SMPL (sample loops), DISP (displayable objects), XMP, CART and iXML metadata chunks in RIFF / WAV files
 

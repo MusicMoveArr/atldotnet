@@ -84,6 +84,11 @@ namespace ATL.AudioData.IO
             public bool PrepareForWriting { get; set; }
 
             /// <summary>
+            /// True : read extra padding bytes at the end of ID3v2 block
+            /// </summary>
+            public bool ExtraID3v2PaddingDetection { get; set; }
+
+            /// <summary>
             /// File offset to start reading metadata from (bytes)
             /// </summary>
             public long Offset { get; set; }
@@ -99,7 +104,27 @@ namespace ATL.AudioData.IO
                 ReadAllMetaFrames = readAllMetaFrames;
                 ReadTag = true;
                 PrepareForWriting = false;
+                ExtraID3v2PaddingDetection = true;
                 Offset = 0;
+            }
+        }
+
+        /// <summary>
+        /// Container class describing tag writing parameters
+        /// </summary>
+        public class WriteTagParams
+        {
+            /// <summary>
+            /// True : read extra padding bytes at the end of ID3v2 block
+            /// </summary>
+            public bool ExtraID3v2PaddingDetection { get; set; }
+
+            /// <summary>
+            /// Create a new ReadTagParams
+            /// </summary>
+            public WriteTagParams()
+            {
+                ExtraID3v2PaddingDetection = true;
             }
         }
 
@@ -184,6 +209,11 @@ namespace ATL.AudioData.IO
         /// NB : Usually true except when the fields are a fixed set
         /// </summary>
         protected virtual bool supportsAdditionalFields => false;
+
+        /// <summary>
+        /// Indicate if the tagging system supports synchronized lyrics
+        /// </summary>
+        protected virtual bool supportsSynchronizedLyrics => false;
 
         /// <summary>
         /// Encode the given DateTime for the current tagging format
@@ -397,6 +427,13 @@ namespace ATL.AudioData.IO
             // Nothing here; the point is to override when needed
         }
 
+        /// <summary>
+        /// Format fields that require a specific format (e.g. dates, numbers)
+        /// </summary>
+        /// <param name="frameType">Frame type</param>
+        /// <param name="tag">TagData carrying formatting parameters</param>
+        /// <param name="map">Metadata values</param>
+        /// <returns></returns>
         protected string formatBeforeWriting(Field frameType, TagData tag, IDictionary<Field, string> map)
         {
             string total;
@@ -465,9 +502,9 @@ namespace ATL.AudioData.IO
 
         /// <inheritdoc/>
         [Zomp.SyncMethodGenerator.CreateSyncVersion]
-        public async Task<bool> WriteAsync(Stream s, TagData tag, ProgressToken<float> writeProgress = null)
+        public async Task<bool> WriteAsync(Stream s, TagData tag, WriteTagParams args, ProgressToken<float> writeProgress = null)
         {
-            TagData dataToWrite = prepareWrite(s, tag);
+            TagData dataToWrite = prepareWrite(s, args, tag);
 
             FileSurgeon surgeon = new FileSurgeon(structureHelper, m_embedder, getImplementedTagType(), getDefaultTagOffset(), writeProgress);
             bool result = await surgeon.RewriteZonesAsync(s, writeAdapter, Zones, dataToWrite, Exists);
@@ -480,7 +517,7 @@ namespace ATL.AudioData.IO
             return result;
         }
 
-        private TagData prepareWrite(Stream r, TagData tag)
+        private TagData prepareWrite(Stream r, WriteTagParams args, TagData tag)
         {
             structureHelper.Clear();
             tagData.Pictures.Clear();
@@ -509,6 +546,7 @@ namespace ATL.AudioData.IO
             {
                 PrepareForWriting = true
             };
+            readTagParams.ExtraID3v2PaddingDetection = args.ExtraID3v2PaddingDetection;
 
             if (m_embedder != null && m_embedder.HasEmbeddedID3v2 > 0)
             {
@@ -524,14 +562,11 @@ namespace ATL.AudioData.IO
             }
 
             // Give engine something to work with if the tag is really empty
-            if (!Exists && 0 == Zones.Count)
-            {
-                structureHelper.AddZone(0, 0);
-            }
+            if (!Exists && 0 == Zones.Count) structureHelper.AddZone(0, 0);
 
             // Merge existing information + new tag information
-            var dataToWrite = new TagData(tagData);
-            dataToWrite.IntegrateValues(tag, supportsPictures, supportsAdditionalFields);
+            var dataToWrite = new TagData(tagData, supportsSynchronizedLyrics);
+            dataToWrite.IntegrateValues(tag, supportsPictures, supportsAdditionalFields, supportsSynchronizedLyrics);
             dataToWrite.Cleanup();
 
             preprocessWrite(dataToWrite);
@@ -540,7 +575,7 @@ namespace ATL.AudioData.IO
 
         /// <inheritdoc/>
         [Zomp.SyncMethodGenerator.CreateSyncVersion]
-        public virtual async Task<bool> RemoveAsync(Stream s)
+        public virtual async Task<bool> RemoveAsync(Stream s, WriteTagParams args)
         {
             handleEmbedder();
 

@@ -177,17 +177,23 @@ namespace ATL.test.CodeSnippets
         {
             Track theFile = new Track(audioFilePath);
 
-            theFile.Lyrics = new LyricsInfo();
-            theFile.Lyrics.LanguageCode = "eng";
-            theFile.Lyrics.Description = "song";
+            theFile.Lyrics = new List<LyricsInfo>();
+            LyricsInfo info = new LyricsInfo();
+            theFile.Lyrics.Add(info);
+
+            info.LanguageCode = "eng";
+            info.Description = "song";
 
             // Option A : Unsynchronized lyrics
-            theFile.Lyrics.UnsynchronizedLyrics = "I'm the one\r\n中を";
+            info.UnsynchronizedLyrics = "I'm the one\r\n中を";
 
             // Option B : Synchronized lyrics
-            theFile.Lyrics.ContentType = LyricsInfo.LyricsType.LYRICS;
-            theFile.Lyrics.SynchronizedLyrics.Add(new LyricsInfo.LyricsPhrase(12000, "I'm the one")); // 12s timestamp
-            theFile.Lyrics.SynchronizedLyrics.Add(new LyricsInfo.LyricsPhrase("00:00:45", "中を"));   // 45s timestamp
+            info.ContentType = LyricsInfo.LyricsType.LYRICS;
+            info.SynchronizedLyrics.Add(new LyricsInfo.LyricsPhrase(12000, "I'm the one")); // 12s timestamp
+            info.SynchronizedLyrics.Add(new LyricsInfo.LyricsPhrase("00:00:45", "中を"));   // 45s timestamp
+
+            // Option C : Synchronized lyrics (from LRC or SRT formats)
+            info.UnsynchronizedLyrics = "[00:28.581]<00:28.581>I'm <00:28.981>wishing <00:29.797>on <00:30.190>a <00:30.629>star<00:31.575>\r\n[00:31.877]<00:31.877>And <00:32.245>trying <00:33.109>to <00:33.525>believe<00:34.845>\r\n";
 
             // Persists the chapters
             theFile.Save();
@@ -196,10 +202,13 @@ namespace ATL.test.CodeSnippets
             theFile = new Track(audioFilePath);
 
             // Display lyrics
-            System.Console.WriteLine(theFile.Lyrics.UnsynchronizedLyrics);
-            foreach (LyricsInfo.LyricsPhrase phrase in theFile.Lyrics.SynchronizedLyrics)
+            foreach (LyricsInfo lyrics in theFile.Lyrics)
             {
-                System.Console.WriteLine("[" + Utils.EncodeTimecode_ms(phrase.TimestampMs) + "] " + phrase.Text);
+                System.Console.WriteLine(lyrics.UnsynchronizedLyrics);
+                foreach (LyricsInfo.LyricsPhrase phrase in lyrics.SynchronizedLyrics)
+                {
+                    System.Console.WriteLine("[" + Utils.EncodeTimecode_ms(phrase.TimestampStart) + "] " + phrase.Text);
+                }
             }
         }
 

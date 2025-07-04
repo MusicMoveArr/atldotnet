@@ -228,7 +228,7 @@ namespace ATL.test.IO.MetaData
             R_ID3v2_Multiple_Genres(TestUtils.GetResourceLocationRoot() + "MP3/id3v2.3_ISO_multipleGenres.mp3", expectedGenres);
         }
 
-        private void R_ID3v2_Multiple_Genres(string location, IList<string> expectedGenres)
+        private static void R_ID3v2_Multiple_Genres(string location, IList<string> expectedGenres)
         {
             AudioDataManager theFile = new AudioDataManager(AudioDataIOFactory.GetInstance().GetFromPath(location));
 
@@ -243,6 +243,75 @@ namespace ATL.test.IO.MetaData
             for (int i = 0; i < expectedGenres.Count; i++)
                 Assert.AreEqual(expectedGenres[i], actualGenres[i]);
         }
+
+        [TestMethod]
+        public void TagIO_R_ID3v2_Lyrics_Multiple()
+        {
+            AudioDataManager theFile = new AudioDataManager(AudioDataIOFactory.GetInstance().GetFromPath(TestUtils.GetResourceLocationRoot() + "MP3/id3v2.3_3lyrics_LRC_A2.mp3"));
+
+            Assert.IsTrue(theFile.ReadFromFile(false, false));
+            Assert.IsNotNull(theFile.ID3v2);
+            Assert.IsTrue(theFile.ID3v2.Exists);
+
+            checkLyricsMultiple(theFile.ID3v2);
+        }
+
+        private static void checkLyricsMultiple(IMetaData meta)
+        {
+            bool hasLRC = false;
+            bool hasLRCA2 = false;
+            bool hasNativeSynch = false;
+            Assert.AreEqual(3, meta.Lyrics.Count);
+
+            for (int i = 0; i < 3; i++)
+            {
+                if (LyricsInfo.LyricsFormat.LRC == meta.Lyrics[i].Format)
+                {
+                    hasLRC = true;
+                    Assert.AreEqual(59, meta.Lyrics[i].SynchronizedLyrics.Count);
+                }
+                if (LyricsInfo.LyricsFormat.LRC_A2 == meta.Lyrics[i].Format)
+                {
+                    hasLRCA2 = true;
+                    Assert.AreEqual(81, meta.Lyrics[i].SynchronizedLyrics.Count);
+                    Assert.AreEqual(5, meta.Lyrics[i].SynchronizedLyrics[3].Beats.Count);
+                }
+                if (LyricsInfo.LyricsFormat.SYNCHRONIZED == meta.Lyrics[i].Format) // SYLT with all beats flatted out
+                {
+                    hasNativeSynch = true;
+                    Assert.AreEqual(197, meta.Lyrics[i].SynchronizedLyrics.Count);
+                }
+            }
+            Assert.IsTrue(hasLRC);
+            Assert.IsTrue(hasLRCA2);
+            Assert.IsTrue(hasNativeSynch);
+        }
+
+        [TestMethod]
+        public void TagIO_R_ID3v2_Lyrics_Beats()
+        {
+            new ConsoleLogger();
+            AudioDataManager theFile = new AudioDataManager(AudioDataIOFactory.GetInstance().GetFromPath(TestUtils.GetResourceLocationRoot() + "MP3/id3v2.3_3lyrics_LRC_A2.mp3"));
+
+            Assert.IsTrue(theFile.ReadFromFile(false, false));
+            Assert.IsNotNull(theFile.ID3v2);
+            Assert.IsTrue(theFile.ID3v2.Exists);
+
+            Assert.AreEqual(LyricsInfo.LyricsFormat.LRC_A2, theFile.ID3v2.Lyrics[1].Format);
+            Assert.IsTrue(theFile.ID3v2.Lyrics[1].SynchronizedLyrics.Count > 0);
+
+            var line = theFile.ID3v2.Lyrics[1].SynchronizedLyrics[3];
+            Assert.AreEqual(5, line.Beats.Count);
+            Assert.AreEqual("I'm wishing on a star", line.Text);
+            Assert.AreEqual(28581, line.TimestampStart);
+            Assert.AreEqual("I'm", line.Beats[0].Text);
+            Assert.AreEqual(28581, line.Beats[0].TimestampStart);
+            Assert.AreEqual(28981, line.Beats[0].TimestampEnd);
+            Assert.AreEqual("wishing", line.Beats[1].Text);
+            Assert.AreEqual(28981, line.Beats[1].TimestampStart);
+            Assert.AreEqual(29797, line.Beats[1].TimestampEnd);
+        }
+
 
         [TestMethod]
         public void TagIO_R_ID3v2_TXXX_MultipleValues()
@@ -466,7 +535,7 @@ namespace ATL.test.IO.MetaData
             if (Settings.DeleteAfterSuccess) File.Delete(testFileLocation);
         }
 
-        private void checkTrackDiscZeroes(FileStream fs)
+        private static void checkTrackDiscZeroes(FileStream fs)
         {
             fs.Seek(0, SeekOrigin.Begin);
             Assert.IsTrue(StreamUtils.FindSequence(fs, Utils.Latin1Encoding.GetBytes("TPOS")));
@@ -1086,28 +1155,28 @@ namespace ATL.test.IO.MetaData
             Assert.IsNotNull(theFile.ID3v2);
             Assert.IsTrue(theFile.ID3v2.Exists);
 
-            Assert.IsTrue(theFile.ID3v2.Lyrics.UnsynchronizedLyrics.StartsWith("JAPANESE:\r\n\r\n煙と雲\r\n\r\n世の中を"));
+            Assert.IsTrue(theFile.ID3v2.Lyrics[0].UnsynchronizedLyrics.StartsWith("JAPANESE:\r\n\r\n煙と雲\r\n\r\n世の中を"));
 
-            // Write
+            // Write unsynched lyrics
             TagData theTag = new TagData();
-            theTag.Lyrics = new LyricsInfo();
-            theTag.Lyrics.LanguageCode = "rus";
-            theTag.Lyrics.Description = "anthem";
-            theTag.Lyrics.UnsynchronizedLyrics = "Государственный гимн\r\nРоссийской Федерации";
+            theTag.Lyrics = new List<LyricsInfo>() { new LyricsInfo() };
+            theTag.Lyrics[0].LanguageCode = "rus";
+            theTag.Lyrics[0].Description = "anthem";
+            theTag.Lyrics[0].UnsynchronizedLyrics = "Государственный гимн\r\nРоссийской Федерации";
 
             Assert.IsTrue(theFile.UpdateTagInFileAsync(theTag, MetaDataIOFactory.TagType.ID3V2).GetAwaiter().GetResult());
             Assert.IsTrue(theFile.ReadFromFile(false, true));
 
-            Assert.AreEqual(theTag.Lyrics.LanguageCode, theFile.ID3v2.Lyrics.LanguageCode);
-            Assert.AreEqual(theTag.Lyrics.Description, theFile.ID3v2.Lyrics.Description);
-            Assert.AreEqual(theTag.Lyrics.UnsynchronizedLyrics, theFile.ID3v2.Lyrics.UnsynchronizedLyrics);
+            Assert.AreEqual(theTag.Lyrics[0].LanguageCode, theFile.ID3v2.Lyrics[0].LanguageCode);
+            Assert.AreEqual(theTag.Lyrics[0].Description, theFile.ID3v2.Lyrics[0].Description);
+            Assert.AreEqual(theTag.Lyrics[0].UnsynchronizedLyrics, theFile.ID3v2.Lyrics[0].UnsynchronizedLyrics);
 
             // Get rid of the working copy
             if (Settings.DeleteAfterSuccess) File.Delete(testFileLocation);
         }
 
         [TestMethod]
-        public void TagIO_RW_ID3v2_Lyrics_Synched()
+        public void TagIO_RW_ID3v2_Lyrics_Synched_From_Code()
         {
             string testFileLocation = TestUtils.CopyAsTempTestFile("MP3/ID3v2.4-SYLT_cn.mp3");
             AudioDataManager theFile = new AudioDataManager(AudioDataIOFactory.GetInstance().GetFromPath(testFileLocation));
@@ -1117,36 +1186,140 @@ namespace ATL.test.IO.MetaData
             Assert.IsNotNull(theFile.ID3v2);
             Assert.IsTrue(theFile.ID3v2.Exists);
 
-            Assert.AreEqual("eng", theFile.ID3v2.Lyrics.LanguageCode);
-            Assert.AreEqual("CompuPhase SYLT Editor", theFile.ID3v2.Lyrics.Description);
-            Assert.AreEqual(LyricsInfo.LyricsType.LYRICS, theFile.ID3v2.Lyrics.ContentType);
-            Assert.AreEqual(58, theFile.ID3v2.Lyrics.SynchronizedLyrics.Count);
+            Assert.AreEqual("eng", theFile.ID3v2.Lyrics[0].LanguageCode);
+            Assert.AreEqual("CompuPhase SYLT Editor", theFile.ID3v2.Lyrics[0].Description);
+            Assert.AreEqual(LyricsInfo.LyricsType.LYRICS, theFile.ID3v2.Lyrics[0].ContentType);
+            Assert.AreEqual(58, theFile.ID3v2.Lyrics[0].SynchronizedLyrics.Count);
 
-            Assert.AreEqual("成都", theFile.ID3v2.Lyrics.SynchronizedLyrics[0].Text);
-            Assert.AreEqual(1340, theFile.ID3v2.Lyrics.SynchronizedLyrics[0].TimestampMs);
+            Assert.AreEqual("成都", theFile.ID3v2.Lyrics[0].SynchronizedLyrics[0].Text);
+            Assert.AreEqual(1340, theFile.ID3v2.Lyrics[0].SynchronizedLyrics[0].TimestampStart);
 
 
             // Write
             TagData theTag = new TagData();
-            theTag.Lyrics = new LyricsInfo();
-            theTag.Lyrics.ContentType = LyricsInfo.LyricsType.LYRICS;
-            theTag.Lyrics.LanguageCode = "jap";
-            theTag.Lyrics.Description = "song";
-            theTag.Lyrics.SynchronizedLyrics.Add(new LyricsInfo.LyricsPhrase(12000, "世の"));
-            theTag.Lyrics.SynchronizedLyrics.Add(new LyricsInfo.LyricsPhrase(18000, "中を"));
+            theTag.Lyrics = new List<LyricsInfo>() { new LyricsInfo() };
+            theTag.Lyrics[0].ContentType = LyricsInfo.LyricsType.LYRICS;
+            theTag.Lyrics[0].LanguageCode = "jap";
+            theTag.Lyrics[0].Description = "song";
+            theTag.Lyrics[0].SynchronizedLyrics.Add(new LyricsInfo.LyricsPhrase(12000, "世の"));
+            theTag.Lyrics[0].SynchronizedLyrics.Add(new LyricsInfo.LyricsPhrase(18000, "中を"));
 
             Assert.IsTrue(theFile.UpdateTagInFileAsync(theTag, MetaDataIOFactory.TagType.ID3V2).GetAwaiter().GetResult());
             Assert.IsTrue(theFile.ReadFromFile(false, true));
 
-            Assert.AreEqual(theTag.Lyrics.ContentType, theFile.ID3v2.Lyrics.ContentType);
-            Assert.AreEqual(theTag.Lyrics.LanguageCode, theFile.ID3v2.Lyrics.LanguageCode);
-            Assert.AreEqual(theTag.Lyrics.Description, theFile.ID3v2.Lyrics.Description);
-            Assert.AreEqual(theTag.Lyrics.SynchronizedLyrics.Count, theFile.ID3v2.Lyrics.SynchronizedLyrics.Count);
-            for (int i = 0; i < theTag.Lyrics.SynchronizedLyrics.Count; i++)
+            Assert.AreEqual(theTag.Lyrics[0].ContentType, theFile.ID3v2.Lyrics[0].ContentType);
+            Assert.AreEqual(theTag.Lyrics[0].LanguageCode, theFile.ID3v2.Lyrics[0].LanguageCode);
+            Assert.AreEqual(theTag.Lyrics[0].Description, theFile.ID3v2.Lyrics[0].Description);
+            Assert.AreEqual(theTag.Lyrics[0].SynchronizedLyrics.Count, theFile.ID3v2.Lyrics[0].SynchronizedLyrics.Count);
+            for (int i = 0; i < theTag.Lyrics[0].SynchronizedLyrics.Count; i++)
             {
-                Assert.AreEqual(theTag.Lyrics.SynchronizedLyrics[i].TimestampMs, theFile.ID3v2.Lyrics.SynchronizedLyrics[i].TimestampMs);
-                Assert.AreEqual(theTag.Lyrics.SynchronizedLyrics[i].Text, theFile.ID3v2.Lyrics.SynchronizedLyrics[i].Text);
+                Assert.AreEqual(theTag.Lyrics[0].SynchronizedLyrics[i].TimestampStart, theFile.ID3v2.Lyrics[0].SynchronizedLyrics[i].TimestampStart);
+                Assert.AreEqual(theTag.Lyrics[0].SynchronizedLyrics[i].Text, theFile.ID3v2.Lyrics[0].SynchronizedLyrics[i].Text);
             }
+
+            // Get rid of the working copy
+            if (Settings.DeleteAfterSuccess) File.Delete(testFileLocation);
+        }
+
+        [TestMethod]
+        public void TagIO_RW_ID3v2_Lyrics_Synched_From_LRC_A2()
+        {
+            string testFileLocation = TestUtils.CopyAsTempTestFile("MP3/empty.mp3");
+            AudioDataManager theFile = new AudioDataManager(AudioDataIOFactory.GetInstance().GetFromPath(testFileLocation));
+
+            TagData theTag = new TagData();
+            theTag.Lyrics = new List<LyricsInfo>() { new LyricsInfo() };
+            theTag.Lyrics[0].UnsynchronizedLyrics = "[00:28.581]<00:28.581>I'm <00:28.981>wishing <00:29.797>on <00:30.190>a <00:30.629>star<00:31.575>\r\n[00:31.877]<00:31.877>And <00:32.245>trying <00:33.109>to <00:33.525>believe<00:34.845>\r\n";
+
+            Assert.IsTrue(theFile.UpdateTagInFileAsync(theTag, MetaDataIOFactory.TagType.ID3V2).GetAwaiter().GetResult());
+            Assert.IsTrue(theFile.ReadFromFile(false, true));
+
+            var lyrics = theFile.ID3v2.Lyrics[0];
+            Assert.AreEqual(LyricsInfo.LyricsFormat.LRC_A2, lyrics.Format);
+            Assert.AreEqual(2, lyrics.SynchronizedLyrics.Count);
+            Assert.AreEqual(28581, lyrics.SynchronizedLyrics[0].TimestampStart);
+            Assert.AreEqual("I'm wishing on a star", lyrics.SynchronizedLyrics[0].Text);
+            Assert.AreEqual(5, lyrics.SynchronizedLyrics[0].Beats.Count);
+            Assert.AreEqual("I'm", lyrics.SynchronizedLyrics[0].Beats[0].Text);
+            Assert.AreEqual(28581, lyrics.SynchronizedLyrics[0].Beats[0].TimestampStart);
+            Assert.AreEqual(28981, lyrics.SynchronizedLyrics[0].Beats[0].TimestampEnd);
+            Assert.AreEqual("wishing", lyrics.SynchronizedLyrics[0].Beats[1].Text);
+            Assert.AreEqual(28981, lyrics.SynchronizedLyrics[0].Beats[1].TimestampStart);
+            Assert.AreEqual(29797, lyrics.SynchronizedLyrics[0].Beats[1].TimestampEnd);
+
+            // Get rid of the working copy
+            if (Settings.DeleteAfterSuccess) File.Delete(testFileLocation);
+        }
+
+        [TestMethod]
+        public void TagIO_RW_ID3v2_Lyrics_Synched_From_SRT()
+        {
+            string testFileLocation = TestUtils.CopyAsTempTestFile("MP3/empty.mp3");
+            AudioDataManager theFile = new AudioDataManager(AudioDataIOFactory.GetInstance().GetFromPath(testFileLocation));
+
+            TagData theTag = new TagData();
+            theTag.Lyrics = new List<LyricsInfo>() { new LyricsInfo() };
+            theTag.Lyrics[0].UnsynchronizedLyrics = "1\r\n00:00:16,612 --> 00:00:19,376\r\nSenator, we're making\r\nour final approach into Coruscant.\r\n\r\n2\r\n00:00:19,482 --> 00:00:21,609\r\nVery good, Lieutenant.\r\n";
+
+            Assert.IsTrue(theFile.UpdateTagInFileAsync(theTag, MetaDataIOFactory.TagType.ID3V2).GetAwaiter().GetResult());
+            Assert.IsTrue(theFile.ReadFromFile(false, true));
+
+            checkSRT(theFile.ID3v2);
+
+            // Get rid of the working copy
+            if (Settings.DeleteAfterSuccess) File.Delete(testFileLocation);
+        }
+
+        [TestMethod]
+        public void TagIO_RW_ID3v2_Lyrics_SRT()
+        {
+            string testFileLocation = TestUtils.CopyAsTempTestFile("MP3/id3v2.3_USLT_srt.mp3");
+            AudioDataManager theFile = new AudioDataManager(AudioDataIOFactory.GetInstance().GetFromPath(testFileLocation));
+            Assert.IsTrue(theFile.ReadFromFile(false, true));
+            Assert.IsNotNull(theFile.ID3v2);
+            Assert.IsTrue(theFile.ID3v2.Exists);
+
+            checkSRT(theFile.ID3v2);
+
+            // Blind update
+            Assert.IsTrue(theFile.UpdateTagInFileAsync(new TagData(), MetaDataIOFactory.TagType.ID3V2).GetAwaiter().GetResult());
+            Assert.IsTrue(theFile.ReadFromFile(false, true));
+            Assert.IsNotNull(theFile.ID3v2);
+            Assert.IsTrue(theFile.ID3v2.Exists);
+
+            // Check if subtitle data is still intact ater update
+            checkSRT(theFile.ID3v2);
+
+            // Get rid of the working copy
+            if (Settings.DeleteAfterSuccess) File.Delete(testFileLocation);
+        }
+
+        private static void checkSRT(IMetaData meta)
+        {
+            Assert.AreEqual(1, meta.Lyrics.Count);
+            var lyrics = meta.Lyrics[0];
+            Assert.AreEqual(LyricsInfo.LyricsFormat.SRT, lyrics.Format);
+            Assert.AreEqual(2, lyrics.SynchronizedLyrics.Count);
+            Assert.AreEqual(16612, lyrics.SynchronizedLyrics[0].TimestampStart);
+            Assert.AreEqual(19376, lyrics.SynchronizedLyrics[0].TimestampEnd);
+            Assert.AreEqual("Senator, we're making\nour final approach into Coruscant.", lyrics.SynchronizedLyrics[0].Text);
+            Assert.AreEqual(19482, lyrics.SynchronizedLyrics[1].TimestampStart);
+            Assert.AreEqual(21609, lyrics.SynchronizedLyrics[1].TimestampEnd);
+            Assert.AreEqual("Very good, Lieutenant.", lyrics.SynchronizedLyrics[1].Text);
+        }
+
+        [TestMethod]
+        public void TagIO_RW_ID3v2_Lyrics_Multiple()
+        {
+            string testFileLocation = TestUtils.CopyAsTempTestFile("MP3/id3v2.3_3lyrics_LRC_A2.mp3");
+            AudioDataManager theFile = new AudioDataManager(AudioDataIOFactory.GetInstance().GetFromPath(testFileLocation));
+
+            // Blind update
+            Assert.IsTrue(theFile.UpdateTagInFileAsync(new TagData(), MetaDataIOFactory.TagType.ID3V2).GetAwaiter().GetResult());
+            Assert.IsTrue(theFile.ReadFromFile(false, true));
+
+            // Check if subtitle data is still intact ater update
+            checkLyricsMultiple(theFile.ID3v2);
 
             // Get rid of the working copy
             if (Settings.DeleteAfterSuccess) File.Delete(testFileLocation);

@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using static ATL.AudioData.IO.MetaDataIO;
 using static ATL.AudioData.MetaDataIOFactory;
 
 namespace ATL.AudioData
@@ -384,7 +385,7 @@ namespace ATL.AudioData
             LogDelegator.GetLocateDelegate()(targetPath);
             theTag.DurationMs = audioDataIO.Duration;
 
-            if (isMetaSupported(tagType))
+            if (isMetaSupported(tagType) || hasMeta(tagType)) // Update supported _and_ present tagging systems
             {
                 try
                 {
@@ -397,7 +398,10 @@ namespace ATL.AudioData
                         handleEmbedder(s, theMetaIO);
 
                         ProgressToken<float> progress = writeProgress?.CreateProgressToken();
-                        result = await theMetaIO.WriteAsync(s, theTag, progress);
+                        var args = new WriteTagParams() {
+                            ExtraID3v2PaddingDetection = isMetaSupported(TagType.ID3V2)
+                        };
+                        result = await theMetaIO.WriteAsync(s, theTag, args, progress);
                         if (result) setMeta(theMetaIO);
                     }
                     finally
@@ -453,7 +457,11 @@ namespace ATL.AudioData
                     result = read(s, false, false, true);
 
                     IMetaDataIO metaIO = getMeta(tagType);
-                    if (metaIO.Exists) await metaIO.RemoveAsync(s);
+                    var args = new WriteTagParams()
+                    {
+                        ExtraID3v2PaddingDetection = isMetaSupported(TagType.ID3V2)
+                    };
+                    if (metaIO.Exists) await metaIO.RemoveAsync(s, args);
                 }
                 finally
                 {
@@ -487,9 +495,20 @@ namespace ATL.AudioData
                 sizeInfo.SetSize(TagType.ID3V1, iD3v1.Size);
             }
             // No embedded ID3v2 tag => supported tag is the standard version of ID3v2
-            if (isMetaSupported(TagType.ID3V2) && !(audioDataIO is IMetaDataEmbedder) && iD3v2.Read(source, readTagParams))
+            if (!(audioDataIO is IMetaDataEmbedder))
             {
-                sizeInfo.SetSize(TagType.ID3V2, iD3v2.Size);
+                // Reset data from ID3v2 tag structure
+                iD3v2.Clear();
+                // Test for ID3v2 regardless of it being supported, to properly handle files with illegal ID3v2 tags
+                source.Position = 0;
+                byte[] data = new byte[32];
+                if (32 == source.Read(data, 0, 32) && IO.ID3v2.IsValidHeader(data))
+                {
+                    source.Position = 0;
+                    readTagParams.ExtraID3v2PaddingDetection = isMetaSupported(TagType.ID3V2);
+                    if (iD3v2.Read(source, readTagParams)) sizeInfo.SetSize(TagType.ID3V2, iD3v2.Size);
+                }
+                source.Position = 0;
             }
             if (isMetaSupported(TagType.APE) && aPEtag.Read(source, readTagParams))
             {

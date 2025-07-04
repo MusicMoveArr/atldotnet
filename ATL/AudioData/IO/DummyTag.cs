@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using static ATL.AudioData.IO.MetaDataIO;
 
 namespace ATL.AudioData.IO
 {
@@ -41,22 +42,18 @@ namespace ATL.AudioData.IO
 
         /// <inheritdoc/>
         [Zomp.SyncMethodGenerator.CreateSyncVersion]
-        public Task<bool> WriteAsync(Stream s, TagData tag, ProgressToken<float> writeProgress = null)
+        public Task<bool> WriteAsync(Stream s, TagData tag, WriteTagParams args, ProgressToken<float> writeProgress = null)
         {
             return Task.FromResult(true);
         }
         /// <inheritdoc/>
-        public bool Read(Stream source, MetaDataIO.ReadTagParams readTagParams)
+        public bool Read(Stream source, ReadTagParams readTagParams)
         {
             throw new NotImplementedException();
         }
         /// <inheritdoc/>
-        public bool Remove(Stream s)
-        {
-            throw new NotImplementedException();
-        }
-        /// <inheritdoc/>
-        public Task<bool> RemoveAsync(Stream s)
+        [Zomp.SyncMethodGenerator.CreateSyncVersion]
+        public Task<bool> RemoveAsync(Stream s, WriteTagParams args)
         {
             throw new NotImplementedException();
         }

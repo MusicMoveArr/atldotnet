@@ -131,6 +131,8 @@ namespace Commons
         public static int DecodeTimecodeToMs(string timeCode)
         {
             int result = -1;
+            if (null == timeCode || 0 == timeCode.Length) return result;
+
             DateTime dateTime;
             bool valid = false;
 
@@ -157,6 +159,12 @@ namespace Commons
                     if (parts[^1].Contains('.'))
                     {
                         string[] subPart = parts[^1].Split('.');
+                        parts[^1] = subPart[0];
+                        milliseconds = int.Parse(subPart[1]);
+                    }
+                    else if (parts[^1].Contains(','))
+                    {
+                        string[] subPart = parts[^1].Split(',');
                         parts[^1] = subPart[0];
                         milliseconds = int.Parse(subPart[1]);
                     }
@@ -460,15 +468,16 @@ namespace Commons
         {
             if (string.IsNullOrEmpty(s)) return false;
 
-            foreach (var t in s)
+            for (int i = 0; i < s.Length; i++)
             {
+                char t = s[i];
                 if (t == '.' || t == ',')
                 {
                     if (allowsOnlyIntegers) return false;
                 }
                 else
                 {
-                    if (!(char.IsDigit(t) || (allowsSigned && t == '-'))) return false;
+                    if (!(char.IsDigit(t) || (allowsSigned && 0 == i && t == '-'))) return false;
                 }
             }
 
